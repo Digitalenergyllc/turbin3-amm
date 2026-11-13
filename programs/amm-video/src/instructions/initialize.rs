@@ -4,7 +4,7 @@ use anchor_spl::{
     token::{Mint, Token, TokenAccount},
 };
 
-use crate::state::Config;
+use crate::{error::AmmError, state::Config};
 
 #[derive(Accounts)]
 #[instruction(seed: u64)]
@@ -39,6 +39,24 @@ pub struct Initialize<'info> {
     #[account(
         init,
         payer = initializer,
+        seeds = [b"treasury", config.key().as_ref(), mint_x.key().as_ref()],
+        bump,
+        token::mint = mint_x,
+        token::authority = config,
+    )]
+    pub treasury_x: Box<Account<'info, TokenAccount>>,
+    #[account(
+        init,
+        payer = initializer,
+        seeds = [b"treasury", config.key().as_ref(), mint_y.key().as_ref()],
+        bump,
+        token::mint = mint_y,
+        token::authority = config,
+    )]
+    pub treasury_y: Box<Account<'info, TokenAccount>>,
+    #[account(
+        init,
+        payer = initializer,
         seeds = [b"config", seed.to_le_bytes().as_ref()],
         bump,
         space = Config::DISCRIMINATOR.len() + Config::INIT_SPACE,
@@ -54,15 +72,23 @@ impl<'info> Initialize<'info> {
         &mut self,
         seed: u64,
         fee: u16,
+        treasury_fee: u16,
         authority: Option<Pubkey>,
         bumps: InitializeBumps,
     ) -> Result<()> {
+        // LP fee + treasury fee together must stay below 100%
+        require!(
+            (fee as u32) + (treasury_fee as u32) < 10_000,
+            AmmError::InvalidFee
+        );
+
         self.config.set_inner(Config {
             seed,
             authority,
             mint_x: self.mint_x.key(),
             mint_y: self.mint_y.key(),
             fee,
+            treasury_fee,
             locked: false,
             config_bump: bumps.config,
             lp_bump: bumps.mint_lp,
