@@ -6,11 +6,11 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-amm_video = "6KoUjko5kqLHaF31gdWGBihf8Pw8dUNte2hBpBEJveVe"
+amm_video = "9mSvCYwR1iS9FRBob7goHMNF7LqPKJLpWk4fu8iko6nS"
 
 [provider]
 cluster = "localnet"
-wallet = "~/.config/solana/id.json"
+wallet = "~/.config/solana/turbin3-class.json"
 
 [scripts]
 test = "cargo test"
