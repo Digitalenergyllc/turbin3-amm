@@ -244,3 +244,35 @@ pub fn test_set_locked_blocks_swap() {
     let res = send(&mut svm, &[swap_ix], &payer, &[&payer]);
     assert!(res.is_ok(), "{:?}", res);
 }
+
+#[test]
+pub fn test_set_locked_wrong_authority() {
+    let (mut svm, payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y) = setup();
+
+    let init_ix = create_initialise_ix(
+        &mut svm, &payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y,
+    );
+    let deposit_ix = create_deposit_ix(
+        &mut svm, &payer, mint_x, mint_y, mint_lp, config, vault_x, vault_y,
+    );
+    let res = send(&mut svm, &[init_ix, deposit_ix], &payer, &[&payer]);
+    assert!(res.is_ok(), "{:?}", res);
+
+    // A stranger tries to lock the pool
+    let stranger = Keypair::new();
+    svm.airdrop(&stranger.pubkey(), 1_000_000_000).unwrap();
+
+    let lock_ix = create_set_locked_ix(&stranger, config, true);
+    let err = send(&mut svm, &[lock_ix], &stranger, &[&stranger]).unwrap_err();
+    assert!(
+        err.meta.logs.iter().any(|l| l.contains("InvalidAuthority")),
+        "expected InvalidAuthority, got logs: {:?}", err.meta.logs
+    );
+
+    // Pool is still unlocked: a swap goes through
+    let swap_ix = create_swap_ix(
+        &mut svm, &payer, mint_x, mint_y, mint_lp, config, vault_x, vault_y,
+    );
+    let res = send(&mut svm, &[swap_ix], &payer, &[&payer]);
+    assert!(res.is_ok(), "{:?}", res);
+}
