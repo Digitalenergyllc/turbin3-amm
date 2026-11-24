@@ -276,3 +276,32 @@ pub fn test_set_locked_wrong_authority() {
     let res = send(&mut svm, &[swap_ix], &payer, &[&payer]);
     assert!(res.is_ok(), "{:?}", res);
 }
+
+#[test]
+pub fn test_swap_slippage() {
+    let (mut svm, payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y) = setup();
+
+    let init_ix = create_initialise_ix(
+        &mut svm, &payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y,
+    );
+    let deposit_ix = create_deposit_ix(
+        &mut svm, &payer, mint_x, mint_y, mint_lp, config, vault_x, vault_y,
+    );
+    let res = send(&mut svm, &[init_ix, deposit_ix], &payer, &[&payer]);
+    assert!(res.is_ok(), "{:?}", res);
+
+    // Demand more out than we put in: must fail
+    let swap_ix = create_swap_ix_with(
+        &mut svm, &payer, mint_x, mint_y, mint_lp, config, vault_x, vault_y,
+        true, 10_000_000, 10_000_000,
+    );
+    let err = send(&mut svm, &[swap_ix], &payer, &[&payer]).unwrap_err();
+    assert!(
+        err.meta.logs.iter().any(|l| l.contains("SlippageExceeded")),
+        "expected SlippageExceeded, got logs: {:?}", err.meta.logs
+    );
+
+    // The whole transaction rolled back, so no protocol fee was kept
+    let treasury_x = Pubkey::find_program_address(&[b"treasury", config.as_ref(), mint_x.as_ref()], &amm_video::id()).0;
+    assert_eq!(token_balance(&svm, &treasury_x), 0);
+}
