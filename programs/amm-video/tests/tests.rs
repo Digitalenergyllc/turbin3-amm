@@ -144,3 +144,30 @@ pub fn test_swap_fee_to_treasury() {
     let treasury_x = Pubkey::find_program_address(&[b"treasury", config.as_ref(), mint_x.as_ref()], &amm_video::id()).0;
 assert_eq!(token_balance(&svm, &treasury_x), 20_000);
 }
+
+#[test]
+pub fn test_collect_fees() {
+    let (mut svm, payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y) = setup();
+    let init_ix = create_initialise_ix(
+        &mut svm, &payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y,
+    );
+    let deposit_ix = create_deposit_ix(
+        &mut svm, &payer, mint_x, mint_y, mint_lp, config, vault_x, vault_y,
+    );
+    let swap_ix = create_swap_ix(
+        &mut svm, &payer, mint_x, mint_y, mint_lp, config, vault_x, vault_y,
+    );
+    let res = send(&mut svm, &[init_ix, deposit_ix, swap_ix], &payer, &[&payer]);
+    assert!(res.is_ok(), "{:?}", res);
+
+    let treasury_x = Pubkey::find_program_address(&[b"treasury", config.as_ref(), mint_x.as_ref()], &amm_video::id()).0;
+    let authority_x = associated_token::get_associated_token_address(&payer.pubkey(), &mint_x);
+    let before = token_balance(&svm, &authority_x);
+
+    let collect_ix = create_collect_fees_ix(&mut svm, &payer, mint_x, mint_y, config);
+    let res = send(&mut svm, &[collect_ix], &payer, &[&payer]);
+    assert!(res.is_ok(), "{:?}", res);
+
+    assert_eq!(token_balance(&svm, &treasury_x), 0);
+    assert_eq!(token_balance(&svm, &authority_x), before + 20_000);
+}
