@@ -204,3 +204,43 @@ pub fn test_collect_fees_wrong_authority() {
     let treasury_x = Pubkey::find_program_address(&[b"treasury", config.as_ref(), mint_x.as_ref()], &amm_video::id()).0;
     assert_eq!(token_balance(&svm, &treasury_x), 20_000);
 }
+
+#[test]
+pub fn test_set_locked_blocks_swap() {
+    let (mut svm, payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y) = setup();
+
+    let init_ix = create_initialise_ix(
+        &mut svm, &payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y,
+    );
+    let deposit_ix = create_deposit_ix(
+        &mut svm, &payer, mint_x, mint_y, mint_lp, config, vault_x, vault_y,
+    );
+    let res = send(&mut svm, &[init_ix, deposit_ix], &payer, &[&payer]);
+    assert!(res.is_ok(), "{:?}", res);
+
+    // Authority locks the pool
+    let lock_ix = create_set_locked_ix(&payer, config, true);
+    let res = send(&mut svm, &[lock_ix], &payer, &[&payer]);
+    assert!(res.is_ok(), "{:?}", res);
+
+    // Swap must be refused while locked
+    let swap_ix = create_swap_ix(
+        &mut svm, &payer, mint_x, mint_y, mint_lp, config, vault_x, vault_y,
+    );
+    let err = send(&mut svm, &[swap_ix], &payer, &[&payer]).unwrap_err();
+    assert!(
+        err.meta.logs.iter().any(|l| l.contains("PoolLocked")),
+        "expected PoolLocked, got logs: {:?}", err.meta.logs
+    );
+
+    // Unlock, and swap works again
+    let unlock_ix = create_set_locked_ix(&payer, config, false);
+    let res = send(&mut svm, &[unlock_ix], &payer, &[&payer]);
+    assert!(res.is_ok(), "{:?}", res);
+
+    let swap_ix = create_swap_ix(
+        &mut svm, &payer, mint_x, mint_y, mint_lp, config, vault_x, vault_y,
+    );
+    let res = send(&mut svm, &[swap_ix], &payer, &[&payer]);
+    assert!(res.is_ok(), "{:?}", res);
+}
