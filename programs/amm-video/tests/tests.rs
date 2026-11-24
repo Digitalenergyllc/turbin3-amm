@@ -171,3 +171,36 @@ pub fn test_collect_fees() {
     assert_eq!(token_balance(&svm, &treasury_x), 0);
     assert_eq!(token_balance(&svm, &authority_x), before + 20_000);
 }
+
+#[test]
+pub fn test_collect_fees_wrong_authority() {
+    let (mut svm, payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y) = setup();
+
+    let init_ix = create_initialise_ix(
+        &mut svm, &payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y,
+    );
+    let deposit_ix = create_deposit_ix(
+        &mut svm, &payer, mint_x, mint_y, mint_lp, config, vault_x, vault_y,
+    );
+    let swap_ix = create_swap_ix(
+        &mut svm, &payer, mint_x, mint_y, mint_lp, config, vault_x, vault_y,
+    );
+    let res = send(&mut svm, &[init_ix, deposit_ix, swap_ix], &payer, &[&payer]);
+    assert!(res.is_ok(), "{:?}", res);
+
+    // A stranger with their own wallet tries to collect
+    let stranger = Keypair::new();
+    svm.airdrop(&stranger.pubkey(), 1_000_000_000).unwrap();
+
+    let collect_ix = create_collect_fees_ix(&mut svm, &stranger, mint_x, mint_y, config);
+    let res = send(&mut svm, &[collect_ix], &stranger, &[&stranger]);
+        let err = res.unwrap_err();
+    assert!(
+        err.meta.logs.iter().any(|l| l.contains("InvalidAuthority")),
+        "expected InvalidAuthority, got logs: {:?}", err.meta.logs
+    );
+
+    // The fees are still sitting in the treasury
+    let treasury_x = Pubkey::find_program_address(&[b"treasury", config.as_ref(), mint_x.as_ref()], &amm_video::id()).0;
+    assert_eq!(token_balance(&svm, &treasury_x), 20_000);
+}
