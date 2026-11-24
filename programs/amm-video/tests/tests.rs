@@ -25,6 +25,10 @@ fn send(
     svm.send_transaction(tx)
 }
 
+fn token_balance(svm: &LiteSVM, account: &Pubkey) -> u64 {
+    let acc = svm.get_account(account).unwrap();
+    u64::from_le_bytes(acc.data[64..72].try_into().unwrap())
+}
 // Setup function to initialize LiteSVM and create a payer keypair
 fn setup() -> (
     LiteSVM,
@@ -68,6 +72,7 @@ fn setup() -> (
     (
         svm, payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y,
     )
+    
 }
 
 #[test]
@@ -120,7 +125,7 @@ pub fn test_withdraw() {
 }
 
 #[test]
-pub fn test_swap() {
+pub fn test_swap_fee_to_treasury() {
     let (mut svm, payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y) = setup();
     let init_ix = create_initialise_ix(
         &mut svm, &payer, mint_x, mint_y, config, mint_lp, vault_x, vault_y,
@@ -136,4 +141,6 @@ pub fn test_swap() {
 
     let res = send(&mut svm, &[init_ix, deposit_ix, swap_ix], &payer, &[&payer]);
     assert!(res.is_ok());
+    let treasury_x = Pubkey::find_program_address(&[b"treasury", config.as_ref(), mint_x.as_ref()], &amm_video::id()).0;
+assert_eq!(token_balance(&svm, &treasury_x), 20_000);
 }
