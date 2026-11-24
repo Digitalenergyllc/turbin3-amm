@@ -13,3 +13,5 @@ pub struct Config {
     pub config_bump: u8,           // Bump seed for the config account
     pub lp_bump: u8,               // Bump seed for the LP token
 }
+// storing the bump seeds in the config account saves compute cost allowing later instructions to write bump = config.lp_bump instead of having to call find_program_address again.
+// signing as Config PDA, the signer seeds have to include the bump seeds, having it stored means it's always on hand.

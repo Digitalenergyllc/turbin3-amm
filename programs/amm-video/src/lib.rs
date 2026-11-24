@@ -22,7 +22,8 @@ pub mod amm_video {
         treasury_fee: u16,
         authority: Option<Pubkey>,
     ) -> Result<()> {
-        ctx.accounts.init(seed, fee, treasury_fee, authority, ctx.bumps)
+        ctx.accounts
+            .init(seed, fee, treasury_fee, authority, ctx.bumps)
     }
 
     pub fn deposit(ctx: Context<Deposit>, amount: u64, max_x: u64, max_y: u64) -> Result<()> {

@@ -146,3 +146,10 @@ impl<'info> Deposit<'info> {
         mint_to(ctx, amount)
     }
 }
+
+// On the first deposit, the user sets the ratio (max_x, max_y). After that, the curve library works out how much X and Y the requested LP amount costs. Then it does two transfers in and one mint_to signed by the Config PDA
+// max_x and max_y protect against slippage. The depositor asks for a fixed amount of LP.
+// The X and Y that LP costs are worked out when the transaction runs, from the vault balances at that moment.
+// If other swaps move the pool between signing and execution, including someone sandwiching the transaction on purpose, the cost could go up.
+// max_x and max_y set a ceiling: if the cost goes over it, the transaction fails rather than taking more from the user.
+// On the very first deposit there’s no ratio yet, so max_x and max_y become the actual amounts deposited and set the pool’s starting price.

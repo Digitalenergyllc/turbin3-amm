@@ -132,3 +132,6 @@ impl<'info> Withdraw<'info> {
         )
     }
 }
+
+// This is deposit in reverse: burn LP, then send X and Y out of the vaults, signed by Config.
+// min_x and min_y are a floor: “burn my LP only if I get at least this much back.”

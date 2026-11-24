@@ -97,3 +97,10 @@ impl<'info> Initialize<'info> {
         Ok(())
     }
 }
+
+// this creates the Config PDA (authority = config), LP mint PDAs, and two vault ATAs owned by Config PDA.
+// PDA has no private seeds so no person can sign for it. The program owns the PDA and can sign for it using the seeds and bump. The vault ATAs are owned by the Config PDA, so only the program can sign for them as well.
+// The only way to get its signature is for the program that owns it to call invoke_signed with the right seeds, which is what CpiContext::new_with_signer does
+// new LP tokens can only appear through code paths you wrote, mainly deposit
+// the program code itself is the gatekeeper
+// any instruction that signs with the config seeds could mint, so I control which ones do.

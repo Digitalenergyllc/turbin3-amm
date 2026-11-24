@@ -189,3 +189,9 @@ impl<'info> Swap<'info> {
         )
     }
 }
+
+// The curve takes config.fee (30 bps in the tests) out of the input.
+// That fee stays in the vaults, so it grows the pool for liquidity providers.
+// Then there is one transfer in from the user and one out from the vault.
+// No LP tokens are minted for it, so each LP token now claims a slightly larger share of the pool. That’s how liquidity providers get paid.
+// min_amount_out is the swapper’s slippage floor.

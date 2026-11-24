@@ -71,10 +71,32 @@ impl<'info> CollectFees<'info> {
     }
 
     pub fn send_from_treasury(&self, is_x: bool, amount: u64) -> Result<()> {
-        // YOUR TURN: model this on withdraw_tokens in withdraw.rs.
-        // 1. pick (from, to): treasury_x -> authority_x, or treasury_y -> authority_y
-        // 2. build signer_seeds for the config PDA
-        // 3. transfer(CpiContext::new_with_signer(...), amount)
-        todo!()
+        let (from, to) = match is_x {
+            true => (
+                self.treasury_x.to_account_info(),
+                self.authority_x.to_account_info(),
+            ),
+            false => (
+                self.treasury_y.to_account_info(),
+                self.authority_y.to_account_info(),
+            ),
+        };
+
+        transfer(
+            CpiContext::new_with_signer(
+                self.token_program.key(),
+                Transfer {
+                    from,
+                    to,
+                    authority: self.config.to_account_info(),
+                },
+                &[&[
+                    b"config",
+                    &self.config.seed.to_le_bytes(),
+                    &[self.config.config_bump],
+                ]],
+            ),
+            amount,
+        )
     }
 }
